@@ -15,8 +15,9 @@ ARG3        .equ ARG2+2      ; 3. Argument
 ARG4        .equ ARG3+2      ; 4. Argument
 CONBU       .equ 0x0080
 UP_CONSI    .equ 0x01
-UP_CONSO    .equ 0x01
+UP_CONSO    .equ 0x02
 UP_PRNST    .equ 0x09
+UP_RCONB    .equ 0x0a ; input string
 
     .area _CODE
     jp  run_hsave
@@ -24,14 +25,56 @@ UP_PRNST    .equ 0x09
     .dw 0
 run_hsave:
     call KDOPAR
+    ld (header_aadr),hl
+    ld (header_eadr),de
+    ld (header_sadr),bc
+    ld hl,#header_note
+    ld b,#32-6
+    ld a,#' '
+fill_buffer:
+    ld (hl),a
+    inc hl
+    djnz fill_buffer
+
     ld c,#UP_PRNST
     ld de,#str_typ
     call BIOS_CALL
     ld c,#UP_CONSI
     call BIOS_CALL
     ld e,a
+    ld (header_typ),a
     ld c,#UP_CONSO
     call BIOS_CALL
+    ld c,#UP_PRNST
+    ld de,#str_filename
+    call BIOS_CALL
+    ld c,#UP_RCONB
+    ld de,#input_buffer
+    ld a,#sizeof_header_filename
+    ld (de),a
+    call BIOS_CALL
+    jp   c,end ; stop gedrückt
+    
+    ld hl,#header_3dots
+    ld a,#0xd3
+    ld (hl),a
+    inc hl
+    ld (hl),a
+    inc hl
+    ld (hl),a
+
+    ld hl,#header_aadr
+    ld ix,#0x00e0
+    ld de,#14
+    call BSMK
+end:
+    ret
+;
+;-------------------------------------------------------------------------------
+;Schreiben eines Blocks
+;-------------------------------------------------------------------------------
+;
+BSMK:
 
     ret
 ;
@@ -120,10 +163,10 @@ INHEX:
     pop bc
     ret
 
-str_filename:
-    .asciz 'filename:'
 str_typ:
     .asciz 'typ:'
+str_filename:
+    .asciz ' filename:'
 
 header_aadr:
     .ds 2
@@ -135,7 +178,10 @@ header_note:
     .ds 6
 header_typ:
     .ds 1
-header_dots:
-    .ds 3
+header_3dots:
+    .ds 1
+input_buffer:
+    .ds 2
 header_filename:
     .ds 16
+sizeof_header_filename .equ .-header_filename
