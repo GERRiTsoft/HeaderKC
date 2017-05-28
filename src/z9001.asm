@@ -14,10 +14,47 @@ ARG2        .equ ARG1+2      ; 2. Argument
 ARG3        .equ ARG2+2      ; 3. Argument
 ARG4        .equ ARG3+2      ; 4. Argument
 CONBU       .equ 0x0080
+IV_CTC_TAPE .equ 0x0200  ; Kassette Schreiben
+IV_CTC1     .equ 0x0202  ; frei
+IV_CTC2     .equ 0x0204  ; entprellen Tastatur
+IV_CTC3     .equ 0x0206  ; Systemuhr
+
 UP_CONSI    .equ 0x01
 UP_CONSO    .equ 0x02
 UP_PRNST    .equ 0x09
 UP_RCONB    .equ 0x0a ; input string
+
+;IO Ports
+;PORT_CTC            .equ 0x80
+PORT_CTC_TAPE       .equ 0x80
+
+CTC_INT_ENABLE      .equ 0x80
+CTC_INT_DISABLE     .equ 0x00
+
+CTC_MODE_COUNTER    .equ 0x40
+CTC_MODE_TIMER      .equ 0x00
+
+CTC_PRESCALE_256    .equ 0x20 ; timer mode only
+CTC_PRESCALE_16     .equ 0x00 ; timer mode only
+
+CTC_TRIGGER_EXT     .equ 0x08
+CTC_TRIGGER_NOW     .equ 0x00
+
+CTC_SET_COUNTER     .equ 0x04
+CTC_RESET           .equ 0x02
+CTC_CMD             .equ 0x01
+
+BIT_0    .equ 23
+BIT_1    .equ 56
+BIT_SYNC .equ 116
+SYNC_BITS .equ 4121
+
+.macro WRITE_DE ?wait
+        ld      c,#0x16 ; 16 bits per word
+        or      c
+wait:
+        jr      nz,wait
+.endm
 
     .area _CODE
     jp  run_hsave
@@ -54,7 +91,6 @@ fill_buffer:
     ld (de),a
     call BIOS_CALL
     jp   c,end ; stop gedrückt
-    
     ld hl,#header_3dots
     ld a,#0xd3
     ld (hl),a
@@ -63,20 +99,93 @@ fill_buffer:
     inc hl
     ld (hl),a
 
+    di
+    ; stop counting
+    ld a,#CTC_CMD|CTC_INT_DISABLE|CTC_RESET
+    out (PORT_CTC_TAPE),a
+    ld hl,(IV_CTC_TAPE)
+    ld (save_ctc_tape),hl
+    ld hl,#isr_sync
+    ld (IV_CTC_TAPE),hl
+
+    ld a,#CTC_CMD|CTC_INT_DISABLE
+    out (0x83),a
+
+    ei
+isr_inst::
     ld hl,#header_aadr
     ld ix,#0x00e0
-    ld de,#14
+    ld de,#SYNC_BITS
     call BSMK
 end:
+    xor a
     ret
+;
+;-------------------------------------------------------------------------------
+;startet CTC + Ausgabe SYNC bits
+;-------------------------------------------------------------------------------
+;
+sync:
+        ld      a,#0x87
+        out     (PORT_CTC_TAPE),a
+        ld      a,#BIT_SYNC
+        out     (PORT_CTC_TAPE),a
+        or      a ; reset ZF
+wait_sync:
+        jr      nz,wait_sync
+        ret
 ;
 ;-------------------------------------------------------------------------------
 ;Schreiben eines Blocks
 ;-------------------------------------------------------------------------------
 ;
-BSMK:
-
+BSMK::
+    call sync
+    ld  hl,#isr_ctc     ; wir kommen gerade von der ISR
+    ld (IV_CTC_TAPE),hl ; so hier soll und wird kein interrupt dazwischen funken
+    ld c,#2             ; jetzt kommen 2 EINS bits
+    ld e,#0xff
+    or c
+wait_eins_bits:
+    jr nz,wait_eins_bits
+    push ix  ; ausgabe blocknummner
+    pop de
+    WRITE_DE
+;    ld e,(hl)
+;    inc hl
+;    ld d,(hl)
+;    inc hl
+;isr_inst2::
+    ld c,#2             ; die letzte halbwelle fehlt
+    ld e,#0xff
+    or c
+wait_last_bit:
+    jr nz,wait_last_bit
+    ld a,#0x03
+    out (PORT_CTC_TAPE),a
     ret
+
+
+isr_sync::
+    dec     de
+    ld      a,e
+    or      d
+    ei
+    reti
+
+isr_ctc::
+    ld      a,#0x87
+    out     (PORT_CTC_TAPE),a
+    rrc     d
+    rr      e
+    ld      a,#BIT_0
+    jr      nc,isr_bit
+    ld      a,#BIT_1
+isr_bit:
+    out     (PORT_CTC_TAPE),a
+    dec     c
+    ei
+    reti
 ;
 ;-------------------------------------------------------------------------------
 ;Kommandoparameter aufbereiten
@@ -167,7 +276,8 @@ str_typ:
     .asciz 'typ:'
 str_filename:
     .asciz ' filename:'
-
+save_ctc_tape:
+    .ds 2
 header_aadr:
     .ds 2
 header_eadr:
