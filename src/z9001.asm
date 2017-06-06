@@ -50,10 +50,10 @@ BIT_SYNC .equ 116
 SYNC_BITS .equ 4121
 
 .macro WRITE_DE ?wait
-        ld      c,#0x16 ; 16 bits per word
-        or      c
+    ld      c,#0x16 ; 16 bits per word
+    or      c
 wait:
-        jr      nz,wait
+    jr      nz,wait
 .endm
 
     .area _CODE
