@@ -21,14 +21,25 @@ IV_CTC1     .equ 0x0202  ; frei
 IV_CTC2     .equ 0x0204  ; entprellen Tastatur
 IV_CTC3     .equ 0x0206  ; Systemuhr
 
-UP_CONSI    .equ 0x01
-UP_CONSO    .equ 0x02
-UP_PRNST    .equ 0x09
-UP_RCONB    .equ 0x0a ; input string
-
 ;IO Ports
 PORT_CTC            .equ 0x80
 PORT_CTC_TAPE       .equ 0x80
+PIO_TASTATUR_B_CMD  .equ 0x93
+
+PIO_MODE            .equ 0x0f
+PIO_M0_ALL_OUTPUT   .equ 0x00
+PIO_M1_ALL_INPUT    .equ 0x40
+PIO_M2_BIDIRECT     .equ 0x80
+PIO_M3_BITWISE      .equ 0xc0
+
+PIO_CONTROL_WORD    .equ 0x07
+PIO_INT_ENABLE      .equ 0x80
+PIO_INT_DISABLE     .equ 0x00
+PIO_M3_AND          .equ 0x40
+PIO_M3_OR           .equ 0x00
+PIO_M3_HIGH         .equ 0x20
+PIO_M3_LOW          .equ 0x00
+PIO_M3_MASK         .equ 0x10
 
 CTC_INT_ENABLE      .equ 0x80
 CTC_INT_DISABLE     .equ 0x00
@@ -84,6 +95,8 @@ run_hsave:
     ld (header_aadr),hl
     ld (header_eadr),de
     ld (header_sadr),bc
+    cp #LEN_TIMER_LOOKUP
+    jp nc,quit_error
     ld hl,#header_note
     ld b,#32-6
     ld a,#' '
@@ -148,10 +161,17 @@ fill_buffer:
     ld c,h
     ld b,a
     inc bc
-    push bc
 
 isr_NEXT::
-    ld hl,#timer_lookup+9
+    ld a,(ARG4)
+    ld d,a
+    add a
+    add d
+    push bc
+    ld c,a
+    ld b,#0
+    ld hl,#timer_lookup
+    add hl,bc
     ld de,#timer_bit0
     ld bc,#3
     ldir
@@ -180,7 +200,21 @@ write_next_block:
     jr nz,write_next_block
     pop bc
 end:
+    call restore_isr
     xor a
+    ret
+quit_error:
+    call restore_isr
+    ld a,#1
+    scf
+    ret
+restore_isr:
+    ld a,#CTC_CMD|CTC_INT_ENABLE
+    out (PORT_CTC+3),a
+    ld hl,(save_ctc_tape)
+    ld (IV_CTC_TAPE),hl
+    ld a,#(PIO_CONTROL_WORD|PIO_INT_ENABLE)
+    out (PIO_TASTATUR_B_CMD),a
     ret
 ;
 ;-------------------------------------------------------------------------------
@@ -352,7 +386,7 @@ timer_lookup:
     ;ab hier wird etwas geschummelt. Der kritische Pfad für 0-Bit
     ;wird etwas verlängert
     .db 10,(10*20357)/10000,(10*41786)/10000   ;2.5 MHz
-TIMER_LOOKUP_LEN .equ (.-timer_lookup)/3
+LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 str_typ:
     .asciz 'typ:'
 str_filename:
