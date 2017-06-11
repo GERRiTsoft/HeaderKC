@@ -5,6 +5,8 @@
 ; Arbeitsspeicher
 ;------------------------------------------------------------------------------
 ;
+        .include 'z9001.inc'
+
 BIOS_CALL   .equ 0x0005
 currbank    .equ 0x0042       ; aktuelle Bank
 firstent    .equ currbank+1  ; temp. Zelle f. Menu
@@ -25,7 +27,7 @@ UP_PRNST    .equ 0x09
 UP_RCONB    .equ 0x0a ; input string
 
 ;IO Ports
-;PORT_CTC            .equ 0x80
+PORT_CTC            .equ 0x80
 PORT_CTC_TAPE       .equ 0x80
 
 CTC_INT_ENABLE      .equ 0x80
@@ -44,16 +46,33 @@ CTC_SET_COUNTER     .equ 0x04
 CTC_RESET           .equ 0x02
 CTC_CMD             .equ 0x01
 
-BIT_0    .equ 23
-BIT_1    .equ 56
-BIT_SYNC .equ 116
-SYNC_BITS .equ 4121
+;BIT_0     .equ 28
+;BIT_1     .equ 57
+;BIT_SYNC  .equ 117
+SYNC_BITS .equ 4087 ; ich nehme mal an es sollten beim Z1013 4096 werden
+                    ; da aber die Zeit eingehalten werden sollte, werden hier
+                    ; ein paar Zyklen entfernt
 
-.macro WRITE_DE ?wait
-    ld      c,#0x16 ; 16 bits per word
-    or      c
-wait:
-    jr      nz,wait
+.macro WRITE_DE ?write_full_period ?write_done ?write_next_bit
+    ld b,#16
+write_next_bit:
+    rrc d
+    rr e
+    exx
+    out (c),b
+    jr nc,write_full_period
+    out (c),d
+    halt
+    exx
+    djnz write_next_bit
+    jr write_done
+write_full_period:
+    out (c),e
+    halt
+    halt
+    exx
+    djnz write_next_bit
+write_done:
 .endm
 
     .area _CODE
@@ -68,6 +87,7 @@ run_hsave:
     ld hl,#header_note
     ld b,#32-6
     ld a,#' '
+
 fill_buffer:
     ld (hl),a
     inc hl
@@ -99,24 +119,66 @@ fill_buffer:
     inc hl
     ld (hl),a
 
+    ld a,#CTC_CMD|CTC_INT_DISABLE
+    out (PORT_CTC+1),a
+    out (PORT_CTC+2),a
+    out (PORT_CTC+3),a
+
     di
     ; stop counting
     ld a,#CTC_CMD|CTC_INT_DISABLE|CTC_RESET
     out (PORT_CTC_TAPE),a
     ld hl,(IV_CTC_TAPE)
     ld (save_ctc_tape),hl
-    ld hl,#isr_sync
+    ld hl,#isr_halt
     ld (IV_CTC_TAPE),hl
-
-    ld a,#CTC_CMD|CTC_INT_DISABLE
-    out (0x83),a
-
     ei
-isr_inst::
+
+    ld hl,(header_eadr)
+    ld bc,(header_aadr)
+    xor a
+    sbc hl,bc
+    ; bitshift >>5, bc block länge
+    add hl,hl
+    rla
+    add hl,hl
+    rla
+    add hl,hl
+    rla
+    ld c,h
+    ld b,a
+    inc bc
+    push bc
+
+isr_NEXT::
+    ld hl,#timer_lookup+9
+    ld de,#timer_bit0
+    ld bc,#3
+    ldir
+
     ld hl,#header_aadr
     ld ix,#0x00e0
+    ld de,#96; SYNC_BITS
+    call BSMK
+
+    ld hl,(header_aadr)
+    push hl
+    pop ix
     ld de,#SYNC_BITS
     call BSMK
+
+write_next_block:
+    push hl
+    pop ix
+    ld de,#14
+    call BSMK
+    pop bc
+    dec bc
+    push bc
+    ld a,b
+    or c
+    jr nz,write_next_block
+    pop bc
 end:
     xor a
     ret
@@ -126,64 +188,75 @@ end:
 ;-------------------------------------------------------------------------------
 ;
 sync:
-        ld      a,#0x87
-        out     (PORT_CTC_TAPE),a
-        ld      a,#BIT_SYNC
-        out     (PORT_CTC_TAPE),a
-        or      a ; reset ZF
-wait_sync:
-        jr      nz,wait_sync
-        ret
+    ld a,#CTC_CMD|CTC_INT_ENABLE|CTC_RESET|CTC_SET_COUNTER
+    out (PORT_CTC_TAPE),a
+    ld a,(timer_bit_sync)
+    out (PORT_CTC_TAPE),a
+
+next_sync_bit:
+    halt
+    dec de
+    ld a,e
+    or d
+    jr nz, next_sync_bit
+    ret
 ;
 ;-------------------------------------------------------------------------------
 ;Schreiben eines Blocks
 ;-------------------------------------------------------------------------------
 ;
 BSMK::
+    exx
+    ld a,(#timer_bit0)
+    ld e,a
+    ld a,(#timer_bit1)
+    ld d,a
+    ld c,#PORT_CTC_TAPE
+    ld b,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+    exx
+
     call sync
-    ld  hl,#isr_ctc     ; wir kommen gerade von der ISR
-    ld (IV_CTC_TAPE),hl ; so hier soll und wird kein interrupt dazwischen funken
-    ld c,#2             ; jetzt kommen 2 EINS bits
-    ld e,#0xff
-    or c
-wait_eins_bits:
-    jr nz,wait_eins_bits
-    push ix  ; ausgabe blocknummner
+isr_CHECK::
+    ; setze möglichst schnell den nächsten Timer
+    ld a,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+    out (PORT_CTC_TAPE),a
+    ld a,(timer_bit1)
+    out (PORT_CTC_TAPE),a
+    halt
+    halt
+
+    push ix  ; Ausgabe blocknummer
     pop de
+    ;de blocknummer
     WRITE_DE
-;    ld e,(hl)
-;    inc hl
-;    ld d,(hl)
-;    inc hl
-;isr_inst2::
-    ld c,#2             ; die letzte halbwelle fehlt
-    ld e,#0xff
-    or c
-wait_last_bit:
-    jr nz,wait_last_bit
-    ld a,#0x03
+
+    ld c,#16
+write_next_word:
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    inc hl
+    add ix,de
+
+isr_NEXT2::
+    WRITE_DE
+    dec c
+    jr nz,write_next_word
+    push ix
+    pop de
+    ; Prüfsumme
+    WRITE_DE
+    ld a,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+    out (PORT_CTC_TAPE),a
+    ld a,#0xe8
+    out (PORT_CTC_TAPE),a
+    halt ; das letzte bit braucht noch mind. einen Nulldurchgang
+    halt ; erstmal zu Ende zählen lassen
+    ld a,#CTC_CMD|CTC_INT_DISABLE|CTC_RESET
     out (PORT_CTC_TAPE),a
     ret
 
-
-isr_sync::
-    dec     de
-    ld      a,e
-    or      d
-    ei
-    reti
-
-isr_ctc::
-    ld      a,#0x87
-    out     (PORT_CTC_TAPE),a
-    rrc     d
-    rr      e
-    ld      a,#BIT_0
-    jr      nc,isr_bit
-    ld      a,#BIT_1
-isr_bit:
-    out     (PORT_CTC_TAPE),a
-    dec     c
+isr_halt::
     ei
     reti
 ;
@@ -204,13 +277,13 @@ KDOPAR:
     call INHEX
     ld (ARG3),hl
     call INHEX
-    ;ld (ARG4),hl
-    ;call INHEX
+    ld (ARG4),hl
+    call INHEX
 PARA:
     ld hl,(ARG1)
     ld de,(ARG2)
     ld bc,(ARG3)
-    ;ld a,(ARG4)
+    ld a,(ARG4)
     ret
 ;
 ;-------------------------------------------------------------------------------
@@ -272,10 +345,24 @@ INHEX:
     pop bc
     ret
 
+timer_lookup:
+    .db 28,57,117                            ;2.5 MHz    Z1013:2 MHz
+    .db 14,(14*20357)/10000,(14*41786)/10000 ;2.5 MHz    Z1013:4 MHz
+    .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz
+    ;ab hier wird etwas geschummelt. Der kritische Pfad für 0-Bit
+    ;wird etwas verlängert
+    .db 10,(10*20357)/10000,(10*41786)/10000   ;2.5 MHz
+TIMER_LOOKUP_LEN .equ (.-timer_lookup)/3
 str_typ:
     .asciz 'typ:'
 str_filename:
     .asciz ' filename:'
+timer_bit0:
+    .ds 1
+timer_bit1:
+    .ds 1
+timer_bit_sync:
+    .ds 1
 save_ctc_tape:
     .ds 2
 header_aadr:
@@ -295,3 +382,29 @@ input_buffer:
 header_filename:
     .ds 16
 sizeof_header_filename .equ .-header_filename
+
+; Kritischer Pfad besteht wenn 16 Bit Wort zu Ende ist und dann
+; ein neues vom Speicher gelesesen werden muss inklusive CRC
+;          CTC/Vorteiler
+;ei        28.15
+;reti      28.11   4
+;exx       27.13   18
+;DJNZ      27.09   22
+;ld c,0x10 27.01   30
+;ld e,(hl) 26.10   37
+;inc hl    26.03   44
+;ld d,(hl) 25.13   50
+;inc hl    25.06   57
+;add ix,de         64
+;ld b,0x10 24.01   78
+;rrc d     23.10   85
+;rr e      23.02   85
+;exx       22.10  101
+;out(),CMD 22.06  105
+;jr nc     21.10  117
+;out(),B0  20.14  129
+;halt      20.02  141
+;auf interrupt warten
+;          19.14  145
+
+
