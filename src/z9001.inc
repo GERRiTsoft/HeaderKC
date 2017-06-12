@@ -33,3 +33,12 @@ UP_SCU      .equ 30  ; Kursor wieder setzen
 UP_COEXT    .equ 31  ; Komprimieren eines Strings, Entfernung aller Steuerzeichen
 ;                32 unbelegt
 UP_RRAND    .equ 33  ; Lesen eines Blockes, setze vorher FCB Byte 32 mit Blocknummer
+
+BLACK       .equ 0x00
+RED         .equ 0x01
+GREEN       .equ 0x02
+YELLOW      .equ 0x03
+BLUE        .equ 0x04
+MAGENTA     .equ 0x05
+CYAN        .equ 0x06
+WHITE       .equ 0x07
