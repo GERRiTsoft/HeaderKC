@@ -1,5 +1,4 @@
-    .module HeaderKC
-
+    .module Z9001
 ;
 ;------------------------------------------------------------------------------
 ; Arbeitsspeicher
@@ -87,6 +86,7 @@ write_done:
 .endm
 
     .area _CODE
+init::
     jp  run_hsave
     .ascii 'HSAVE   '
     .dw 0
@@ -162,7 +162,6 @@ fill_buffer:
     ld b,a
     inc bc
 
-isr_NEXT::
     ld a,(ARG4)
     ld d,a
     add a
@@ -250,7 +249,6 @@ BSMK::
     exx
 
     call sync
-isr_CHECK::
     ; setze möglichst schnell den nächsten Timer
     ld a,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
     out (PORT_CTC_TAPE),a
@@ -272,7 +270,6 @@ write_next_word:
     inc hl
     add ix,de
 
-isr_NEXT2::
     WRITE_DE
     dec c
     jr nz,write_next_word
@@ -290,7 +287,7 @@ isr_NEXT2::
     out (PORT_CTC_TAPE),a
     ret
 
-isr_halt::
+isr_halt:
     ei
     reti
 ;
@@ -387,10 +384,15 @@ timer_lookup:
     ;wird etwas verlängert
     .db 10,(10*20357)/10000,(10*41786)/10000   ;2.5 MHz
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
+
 str_typ:
     .asciz 'typ:'
 str_filename:
     .asciz ' filename:'
+;
+; uninitialisierte Daten
+;
+    .area _BSS
 timer_bit0:
     .ds 1
 timer_bit1:
@@ -440,5 +442,6 @@ sizeof_header_filename .equ .-header_filename
 ;halt      20.02  141
 ;auf interrupt warten
 ;          19.14  145
+
 
 
