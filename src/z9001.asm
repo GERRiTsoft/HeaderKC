@@ -102,6 +102,13 @@ run_hsave:
     ld (header_sadr),bc
     cp #LEN_TIMER_LOOKUP
     jp nc,quit_error
+    or c
+    or b
+    or e
+    or d
+    or l
+    or h
+    jp z,quit_usage
     ld hl,#header_note
     ld b,#32-6
     ld a,#' '
@@ -212,6 +219,13 @@ quit_error:
     call restore_isr
     ld a,#1
     scf
+    ret
+quit_usage:
+    call restore_isr
+    ld c,#UP_PRNST
+    ld de,#str_usage
+    call BIOS_CALL
+    xor a
     ret
 restore_isr:
     ld a,#CTC_CMD|CTC_INT_ENABLE
@@ -390,6 +404,25 @@ timer_lookup:
     .db 10,(10*20357)/10000,(10*41786)/10000 ;2.5 MHz    Z1013:5.6 MHz
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 
+str_usage:
+    .ascii 'HeaderKC Turbo V.0001\n\r'
+    .ascii '  Abspeichern im Z1013-Format\n\r\n\r'
+    .ascii 'HSAVE AADR EADR [SADR] [Geschw.]\n\r'
+    .ascii 'AADR   - Anfangadresse oder \n\r'
+    .ascii '         : letzten Vorgang wiederholen\n\r'
+    .ascii 'EADR   - Endadresse (letztes Byte!)\n\r'
+    .ascii 'SADR   - (optional) Startadresse\n\r'
+    .ascii 'Geschw.- (optional) 0-'
+    .db LEN_TIMER_LOOKUP-1+0x30
+    .ascii '\n\r'
+    .ascii '         0 .. normal    Z1013 2.0MHz\n\r'
+    .ascii '         1 .. turbo     Z1013 4.0MHz\n\r'
+    .ascii '         2 .. usw.      Z1013 5.1MHz\n\r'
+    .ascii '         3 ..           Z1013 5.6MHz\n\r'
+    .ascii 'Beispiele:\n\r'
+    .ascii 'HSAVE :\n\r'
+    .ascii 'HSAVE F000 F7FF\n\r'
+    .asciz 'HSAVE F000 F7FF 0000 03\n\r'
 str_typ:
     .asciz 'typ:'
 str_filename:

@@ -33,7 +33,7 @@
 
         .globl init
         .globl s__CODE
-        .globl l__CODE
+        .globl s__BSS
 
         .area   _KCC_HEADER (abs)
 start_of_header:
@@ -42,7 +42,7 @@ start_of_header:
         .db 0x00,0x00,0x00,0x00,0x00 ; reserved
         .db 0x02                     ; next block
         .dw s__CODE                  ; load address
-        .dw l__CODE-1                ; end address 
+        .dw s__BSS-1                 ; end address 
         .dw 0x0000                   ; start address
 LEN_HEADER .equ .-start_of_header
 	.rept 128-LEN_HEADER 
