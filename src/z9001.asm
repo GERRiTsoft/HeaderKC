@@ -79,6 +79,9 @@ write_next_bit:
 write_full_period:
     out (c),e
     halt
+    ; wir verlieren hier viel Zeit,
+    ; eigentlich warten wir nur auf den zweiten Nulldurchgang
+    ; ggf. kann man hierhin noch mehr Befehle verschieben
     halt
     exx
     djnz write_next_bit
@@ -92,6 +95,8 @@ init::
     .dw 0
 run_hsave:
     call KDOPAR
+    cp #':'
+    jp z,header_prepared
     ld (header_aadr),hl
     ld (header_eadr),de
     ld (header_sadr),bc
@@ -132,6 +137,7 @@ fill_buffer:
     inc hl
     ld (hl),a
 
+header_prepared:
     ld a,#CTC_CMD|CTC_INT_DISABLE
     out (PORT_CTC+1),a
     out (PORT_CTC+2),a
@@ -177,7 +183,7 @@ fill_buffer:
 
     ld hl,#header_aadr
     ld ix,#0x00e0
-    ld de,#96; SYNC_BITS
+    ld de,#SYNC_BITS
     call BSMK
 
     ld hl,(header_aadr)
@@ -269,7 +275,6 @@ write_next_word:
     ld d,(hl)
     inc hl
     add ix,de
-
     WRITE_DE
     dec c
     jr nz,write_next_word
@@ -377,12 +382,12 @@ INHEX:
     ret
 
 timer_lookup:
-    .db 28,57,117                            ;2.5 MHz    Z1013:2 MHz
-    .db 14,(14*20357)/10000,(14*41786)/10000 ;2.5 MHz    Z1013:4 MHz
-    .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz
-    ;ab hier wird etwas geschummelt. Der kritische Pfad für 0-Bit
-    ;wird etwas verlängert
-    .db 10,(10*20357)/10000,(10*41786)/10000   ;2.5 MHz
+    .db 28,57,117                            ;2.5 MHz    Z1013:2   MHz
+    .db 14,(14*20357)/10000,(14*41786)/10000 ;2.5 MHz    Z1013:4   MHz
+    .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz    Z1013:5.1 MHz
+    ;ab hier wird etwas geschummelt. Der kritische Pfad für das 0-Bit
+    ;kann etwas verlängert werden z.B. von 10 auf 11
+    .db 10,(10*20357)/10000,(10*41786)/10000 ;2.5 MHz    Z1013:5.6 MHz
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 
 str_typ:
