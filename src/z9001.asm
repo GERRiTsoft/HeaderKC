@@ -88,12 +88,20 @@ write_full_period:
 write_done:
 .endm
 
+;
+; Beginn der Kommandotabelle
+;
+;  das Segment _CODE muss auf einer durch 0x0100 teilbaren Adresse liegen
     .area _CODE
 init::
     jp  run_hsave
     .ascii 'HSAVE   '
-    .dw 0
-run_hsave:
+    .db 0x00
+    .include 'z9001_hload.asm'
+    .dw 0x0000
+
+    .area _CODE2
+run_hsave::
     call KDOPAR
     cp #':'
     jp z,header_prepared
@@ -258,7 +266,7 @@ next_sync_bit:
 ;Schreiben eines Blocks
 ;-------------------------------------------------------------------------------
 ;
-BSMK::
+BSMK:
     exx
     ld a,(#timer_bit0)
     ld e,a
@@ -405,7 +413,9 @@ timer_lookup:
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 
 str_usage:
-    .ascii 'HeaderKC Turbo V.0001\n\r'
+    .ascii 'HeaderKC Turbo V.'
+    .include 'version.inc'
+    .ascii '\n\r'
     .ascii '  Abspeichern im Z1013-Format\n\r\n\r'
     .ascii 'HSAVE \024\003AADR EADR \024\002[\024\003SADR\024\002] [\024\003Geschw.\024\002]\n\r'
     .ascii '\024\003AADR   - \024\006Anfangadresse oder \n\r'
