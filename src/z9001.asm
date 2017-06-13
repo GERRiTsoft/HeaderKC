@@ -407,7 +407,7 @@ LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 str_usage:
     .ascii 'HeaderKC Turbo V.0001\n\r'
     .ascii '  Abspeichern im Z1013-Format\n\r\n\r'
-    .ascii 'HSAVE AADR EADR [SADR] [Geschw.]\n\r'
+    .ascii 'HSAVE \024\003AADR EADR \024\002[\024\003SADR\024\002] [\024\003Geschw.\024\002]\n\r'
     .ascii '\024\003AADR   - \024\006Anfangadresse oder \n\r'
     .ascii '         : letzten Vorgang wiederholen\n\r'
     .ascii '\024\003EADR   - \024\006Endadresse (letztes Byte!)\n\r'
