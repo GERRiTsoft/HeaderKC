@@ -1,11 +1,14 @@
-all: example1 z9001
+all: example1 z9001 kc85
 
-.PHONY: example1 z9001 isr clean tools 
+.PHONY: example1 z9001 isr clean tools kc85
+.PRECIOUS: obj/%.rel
 
 obj:
-	mkdir obj
-out:
 	mkdir out
+	mkdir obj
+	mkdir obj/kc85
+	mkdir obj/z9001
+
 #
 # EXAMPLE1
 #
@@ -22,7 +25,9 @@ example1: obj
 #assemble und berechne taktzyklen
 isr: obj/isr_test.bin
 
-z9001: obj out tools obj/z9001.kcc out/z9001.wav 
+kc85:  obj obj/kc85/HeaderKC_KC85_4.kcc
+
+z9001: obj tools obj/z9001.kcc out/z9001.wav 
 
 tools: obj obj/kcc2wav
 
@@ -42,6 +47,15 @@ obj/z9001.kcc: src/z9001.asm src/header_z9001.asm
 	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
 	printf "%.8s" "HSAVE2" >obj/filename.txt
 	dd bs=1 if=obj/filename.txt of="$@" count=8 seek=0 conv=notrunc,ucase
+
+obj/%.rel: src/%.asm
+	sdasz80 -plosgff $@ $<
+
+obj/kc85/HeaderKC_KC85_4.kcc: obj/kc85/header.rel obj/kc85/hsave.rel obj/kc85/hload.rel
+	sdldz80 -mjwxi -b _KCC_HEADER=0x180 -b _CODE=0x0200 $(@:kcc=ihx) $^
+	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
+	printf "%.8s" "HSAVE" >obj/kc85/filename.txt
+	dd bs=1 if=obj/kc85/filename.txt of="$@" count=8 seek=0 conv=notrunc,ucase
 
 out/%.wav: obj/%.kcc
 	obj/kcc2wav $< $@

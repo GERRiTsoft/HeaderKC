@@ -1,7 +1,7 @@
 ;--------------------------------------------------------------------------
-;  header.s
+;  header.asm
 ;
-;  Copyright (C) 2016, Andreas Ziermann
+;  Copyright (C) 2017, Andreas Ziermann
 ;
 ;  This library is free software; you can redistribute it and/or modify it
 ;  under the terms of the GNU General Public License as published by the
@@ -26,26 +26,32 @@
 ;   might be covered by the GNU General Public License.
 ;--------------------------------------------------------------------------
 
-; specific header to automatic generate KCC format 
-; (which is used by simulator, disk, tape, USB, etc...)
+; Header für das .KCC Dateiformat 
+; zur Verwendung für Emulator, Disk, Tape, USB, usw.
+    .module header
 
-        .module header_z9001
+    .globl init
+    .globl s__CODE
+    .globl s__BSS
 
-        .globl init
-        .globl s__CODE
-        .globl s__BSS
-
-        .area   _KCC_HEADER (abs)
+    .area   _KCC_HEADER (abs)
 start_of_header:
-        .db 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00 ;name (placeholder 8 chars)
-        .ascii 'COM'                 ; extension
-        .db 0x00,0x00,0x00,0x00,0x00 ; reserved
-        .db 0x02                     ; next block
-        .dw s__CODE                  ; load address
-        .dw s__BSS-1                 ; end address 
-        .dw 0x0000                   ; start address
+    .rept 8
+        .db 0x00 ; platzhalter für Kommandoname
+    .endm
+    .ascii 'COM'                 ; Dateityp
+    .db 0x00,0x00,0x00,0x00,0x00 ; reserviert
+    .db 0x02                     ; Anzahl der Argumente
+    .dw s__CODE                  ; Anfangsadresse
+    .dw s__BSS                   ; Endadresse+1 beim KC85/2
+    .dw 0x0000                   ; Startadresse
 LEN_HEADER .equ .-start_of_header
-      .rept 128-LEN_HEADER
-        .db 0x00 ; reserved
+    .rept 128-LEN_HEADER
+        .db 0x00 ; reserviert
     .endm
 
+    ; setze Linkerreihenfolge
+    .area _CODE
+init::
+    .area _RODATA
+    .area _BSS
