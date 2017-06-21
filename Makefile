@@ -4,10 +4,9 @@ all: example1 z9001 kc85
 .PRECIOUS: obj/%.rel
 
 obj:
-	mkdir out
-	mkdir obj
-	mkdir obj/kc85
-	mkdir obj/z9001
+	mkdir -p out
+	mkdir -p obj/kc85
+	mkdir -p obj/z9001
 
 #
 # EXAMPLE1
