@@ -10,8 +10,7 @@ BIOS_CALL   .equ 0x0005
 currbank    .equ 0x0042       ; aktuelle Bank
 firstent    .equ currbank+1  ; temp. Zelle f. Menu
 DATA        .equ firstent+1  ; Konvertierungsbuffer
-ARGN        .equ DATA+2
-ARG1        .equ ARGN+1      ; 1. Argument
+ARG1        .equ DATA+2      ; 1. Argument
 ARG2        .equ ARG1+2      ; 2. Argument
 ARG3        .equ ARG2+2      ; 3. Argument
 ARG4        .equ ARG3+2      ; 4. Argument
@@ -329,8 +328,6 @@ KDOPAR::
     ld a,(de)
     cp #':'          ;die alten Werte nehmen ?
     ret z
-    xor a; keine Argumente
-    ld (ARGN),a
     call INHEX
     ld (ARG1),hl       ;neue Argumente holen
     call INHEX

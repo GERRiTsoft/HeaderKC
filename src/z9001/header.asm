@@ -42,7 +42,7 @@ start_of_header:
         .db 0x00,0x00,0x00,0x00,0x00 ; reserviert
         .db 0x02                     ; Anzahl der Argumente
         .dw s__CODE                  ; Anfangsadresse
-        .dw s__BSS                   ; Endadresse+1 beim KC85/2
+        .dw s__BSS-1                 ; Endadresse+1 beim KC85/2
                                      ; letzte Adresse beim Z9001
         .dw 0x0000                   ; Startadresse
 LEN_HEADER .equ .-start_of_header
