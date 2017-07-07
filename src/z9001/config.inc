@@ -100,11 +100,13 @@ CTC_TRIGGER_NOW     .equ 0x00
 CTC_SET_COUNTER     .equ 0x04
 CTC_RESET           .equ 0x02
 CTC_CMD             .equ 0x01
+CLK                 .equ 2457500
+CLK16               .equ  153594
 
 SYNC_BITS           .equ 4096
 
+VK_BREAK            .equ 0x03
 VK_LEFT             .equ 0x08
-CURSOR_RIGHT        .equ 0x09
 VK_ENTER            .equ 0x0d
 
 .macro CPUTS_NEWLINE str

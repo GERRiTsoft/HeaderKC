@@ -8,17 +8,17 @@
 
 BIOS_CALL   .equ 0x0005
 currbank    .equ 0x0042       ; aktuelle Bank
-firstent    .equ currbank+1  ; temp. Zelle f. Menu
-DATA        .equ firstent+1  ; Konvertierungsbuffer
-ARG1        .equ DATA+2      ; 1. Argument
-ARG2        .equ ARG1+2      ; 2. Argument
-ARG3        .equ ARG2+2      ; 3. Argument
-ARG4        .equ ARG3+2      ; 4. Argument
+firstent    .equ currbank+1   ; temp. Zelle f. Menu
+DATA        .equ firstent+1   ; Konvertierungsbuffer
+ARG1        .equ DATA+2       ; 1. Argument
+ARG2        .equ ARG1+2       ; 2. Argument
+ARG3        .equ ARG2+2       ; 3. Argument
+ARG4        .equ ARG3+2       ; 4. Argument
 CONBU       .equ 0x0080
-IV_CTC_TAPE .equ 0x0200  ; Kassette Schreiben
-IV_CTC1     .equ 0x0202  ; frei
-IV_CTC2     .equ 0x0204  ; entprellen Tastatur
-IV_CTC3     .equ 0x0206  ; Systemuhr
+IV_CTC_TAPE .equ 0x0200       ; Kassette Schreiben
+IV_CTC1     .equ 0x0202       ; frei
+IV_CTC2     .equ 0x0204       ; entprellen Tastatur
+IV_CTC3     .equ 0x0206       ; Systemuhr
 
 ;IO Ports
 PORT_CTC            .equ 0x80

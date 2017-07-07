@@ -77,7 +77,14 @@ next_character:
         GETCH
         cp      #' '
         call    c,steuerzeichen
-        ret     c
+        ; return if CF=1
+        jr      nc,2$
+        cp      #VK_BREAK
+        scf
+        ret     z
+        ccf
+        ret
+2$:
         jr      z,next_character
         ld      b,a
         ld      a,1(iy)
@@ -91,6 +98,9 @@ next_character:
         jr      next_character
 steuerzeichen:
         cp      #VK_ENTER
+        scf
+        ret     z
+        cp      #VK_BREAK
         scf
         ret     z
         cp      #VK_LEFT

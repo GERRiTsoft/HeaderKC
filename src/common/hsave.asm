@@ -3,11 +3,39 @@
 
         .globl prepare_arguments
 
+.macro WRITE_DE ?write_full_period ?write_done ?write_next_bit
+    ld b,#16
+write_next_bit:
+    rrc d
+    rr e
+    exx
+    out (c),b
+    jr nc,write_full_period
+    out (c),d
+    halt
+    exx
+    djnz write_next_bit
+    jr write_done
+write_full_period:
+    out (c),e
+    halt
+    ; wir verlieren hier viel Zeit,
+    ; eigentlich warten wir nur auf den zweiten Nulldurchgang
+    ; ggf. kann man hierhin noch mehr Befehle verschieben
+    halt
+    exx
+    djnz write_next_bit
+write_done:
+.endm
+
         .area   _CODE2
 run_hsave::
         call    prepare_arguments
         jr      c,header_prepared
         jp      z,show_usage_and_exit
+        ld      a,(ARG4)
+        cp      #LEN_TIMER_LOOKUP
+        jp      nc,show_usage_and_exit
         ld      (header_aadr),hl
         ld      (header_eadr),de
         ld      (header_sadr),bc
@@ -27,9 +55,20 @@ run_hsave::
         ld      a,#sizeof_header_filename
         ld      (de),a
         INLINE
-        ; TODO
-        ; rest mit leerzeichen ausfuellen
-        ; check CF Ende
+        jp       c,exit
+inline_str::
+        ld      a,#sizeof_header_filename+1
+        sub     1(iy)
+        ld      b,a
+        ld      hl,#header_filename+#sizeof_header_filename-1
+        ld      a,#' '
+        dec     b
+        jr      z,2$
+4$:
+        ld      (hl),a
+        dec     hl
+        djnz    4$
+2$:
         ld      hl,#header_3dots
         ld      a,#0xd3
         ld      (hl),a
@@ -38,22 +77,191 @@ run_hsave::
         inc     hl
         ld      (hl),a
 header_prepared::
+        call    stop_all_timers
+        call    save_old_iv
+
+        ld      hl,(header_eadr)
+        ld      bc,(header_aadr)
+        xor     a
+        sbc     hl,bc
+        ; bitshift >>5, bc block länge
+        add     hl,hl
+        rla
+        add     hl,hl
+        rla
+        add     hl,hl
+        rla
+        ld      c,h
+        ld      b,a
+        inc     bc
+
+get_timers::
+        ld      a,(ARG4)
+        ld      d,a
+        add     a
+        add     d
+        push    bc
+        ld      c,a
+        ld      b,#0
+        ld      hl,#timer_lookup
+        add     hl,bc
+        ld      de,#timer_bit0
+        ld      bc,#3
+        ldir
+
+        ld      hl,#header_aadr
+        ld      iy,#0x00e0
+        ld      de,#SYNC_BITS
+        call    BSMK
+        ld      hl,(header_aadr)
+        push    hl
+        pop     iy
+        ld      de,#SYNC_BITS
+        call    BSMK
+
+write_next_block:
+        push    hl
+        pop     iy
+        ld      de,#14
+        call    BSMK
+        pop     bc
+        dec     bc
+        push    bc
+        ld      a,b
+        or      c
+        jr      nz,write_next_block
+        pop     bc
+
+        call    restore_iv
         xor     a
         ret
 
 show_usage_and_exit:
         CPUTS_NEWLINE   str_usage
+exit:
         xor     a
         ret
+;
+;-------------------------------------------------------------------------------
+;startet CTC + Ausgabe SYNC bits
+;-------------------------------------------------------------------------------
+;
+sync:
+        ld      a,#CTC_CMD|CTC_INT_ENABLE|CTC_RESET|CTC_SET_COUNTER
+        out     (PORT_CTC_TAPE),a
+        ld      a,(timer_bit_sync)
+        out     (PORT_CTC_TAPE),a
+next_sync_bit:
+        halt
+        dec     de
+        ld      a,e
+        or      d
+        jr      nz, next_sync_bit
+        ret
 
+stop_all_timers:
+        ld      a,#CTC_CMD|CTC_INT_DISABLE
+        out     (PORT_CTC+1),a
+        out     (PORT_CTC+2),a
+        out     (PORT_CTC+3),a
+        ret
+restore_iv:
+        di
+        ;ld a,#CTC_CMD|CTC_INT_ENABLE
+        ;out (PORT_CTC+3),a
+        ld hl,(save_ctc_tape)
+        ld (IV_CTC_TAPE),hl
+        ;ld a,#(PIO_CONTROL_WORD|PIO_INT_ENABLE)
+        ;out (PIO_TASTATUR_B_CMD),a
+        ret
+
+save_old_iv:
+        di
+        ld      a,#CTC_CMD|CTC_INT_DISABLE|CTC_RESET
+        out     (PORT_CTC_TAPE),a
+        ld      hl,(IV_CTC_TAPE)
+        ld      (save_ctc_tape),hl
+        ld      hl,#isr_halt
+        ld      (IV_CTC_TAPE),hl
+        ei
+        ret
+;
+;-------------------------------------------------------------------------------
+;Schreiben eines Blocks
+;-------------------------------------------------------------------------------
+;
+BSMK::
+        exx
+        ld      a,(#timer_bit0)
+        ld      e,a
+        ld      a,(#timer_bit1)
+        ld      d,a
+        ld      c,#PORT_CTC_TAPE
+        ld      b,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+        exx
+
+        call    sync
+        ; setze möglichst schnell den nächsten Timer
+        ld      a,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+        out     (PORT_CTC_TAPE),a
+        ld      a,(timer_bit1)
+        out     (PORT_CTC_TAPE),a
+        halt
+        halt
+
+        push    iy  ; Ausgabe blocknummer
+        pop     de
+        ;de blocknummer
+        WRITE_DE
+
+        ld      c,#16
+write_next_word:
+        ld      e,(hl)
+        inc     hl
+        ld      d,(hl)
+        inc     hl
+        add     iy,de
+        WRITE_DE
+        dec     c
+        jr      nz,write_next_word
+        push    iy
+        pop     de
+        ; Prüfsumme
+        WRITE_DE
+        ld      a,#CTC_CMD|CTC_INT_ENABLE|CTC_SET_COUNTER
+        out     (PORT_CTC_TAPE),a
+        ld      a,#0xe8
+        out     (PORT_CTC_TAPE),a
+        halt ; das letzte bit braucht noch mind. einen Nulldurchgang
+        halt ; erstmal zu Ende zählen lassen
+        ld      a,#CTC_CMD|CTC_INT_DISABLE|CTC_RESET
+        out     (PORT_CTC_TAPE),a
+        ret
+
+isr_halt::
+        ei
+        reti
+;
+; Datensegment
+;
         .area   _RODATA
+HZ_SYNC .equ 650
+HZ_BIT1 .equ 1350
+HZ_BIT0 .equ 2750
 timer_lookup:
-        .db 28,57,117                            ;2.5 MHz    Z1013:2   MHz
-        .db 14,(14*20357)/10000,(14*41786)/10000 ;2.5 MHz    Z1013:4   MHz
+        ; db   28,  57, 117                            ;2.45 MHz   Z1013:2   MHz
+        ; db 0x14,0x29,0x54                            ;1.75 MHz - Z1013:2   MHz
+        ; db   20,  41,  84                            ;1.75 MHz - Z1013:2   MHz
+        .db ((CLK16/HZ_BIT0)+1)/2,((CLK16/HZ_BIT1)+1)/2,((CLK16/HZ_SYNC)+1)/2 ;1.75 MHz - Z1013:2   MHz
+        ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 16 Takzyklen Zeit
+        ; bis zum nächsten Interrupt, andernfalls kommt womöglich noch eine extra
+        ; Halbwelle zu viel auf das Band
+        .db ((CLK16/HZ_BIT0)+1)/4+1,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4   MHz
+.if ne(CLK-1750000)
         .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz    Z1013:5.1 MHz
-        ;ab hier wird etwas geschummelt. Der kritische Pfad für das 0-Bit
-        ;kann etwas verlängert werden z.B. von 10 auf 11
         .db 10,(10*20357)/10000,(10*41786)/10000 ;2.5 MHz    Z1013:5.6 MHz
+.endif
+
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 str_hsave4:
         .ascii 'HSAVE4'
@@ -101,17 +309,27 @@ str_usage:
         .ascii '(optional) 0-'
         .db LEN_TIMER_LOOKUP-1+0x30
         .ascii '\n\r'
+.if gt(LEN_TIMER_LOOKUP-0)
         .ascii '         0 .. normal    Z1013 2.0MHz\n\r'
+.endif
+.if gt(LEN_TIMER_LOOKUP-1)
         .ascii '         1 .. turbo     Z1013 4.0MHz\n\r'
+.endif
+.if gt(LEN_TIMER_LOOKUP-2)
         .ascii '         2 .. usw.      Z1013 5.1MHz\n\r'
+.endif
+.if gt(LEN_TIMER_LOOKUP-3)
         .ascii '         3 ..           Z1013 5.6MHz\n\r'
+.endif
         .dw CHR_WHITE
         .ascii 'Beispiele:\n\r'
         .ascii 'HSAVE '
         .db CHR_REPEAT
         .ascii '\n\r'
         .ascii 'HSAVE F000 F7FF\n\r'
-        .asciz 'HSAVE F000 F7FF 0000 03\n\r'
+        .ascii 'HSAVE F000 F7FF 0000 0'
+        .db LEN_TIMER_LOOKUP-1+0x30
+        .asciz '\n\r'
         .dw CHR_DEFAULT
 str_typ:
         .asciz 'typ:'
@@ -121,7 +339,7 @@ str_filename:
 ; uninitialisierte Daten
 ;
         .area _BSS
-timer_bit0:
+timer_bit0::
         .ds 1
 timer_bit1:
         .ds 1
@@ -129,7 +347,7 @@ timer_bit_sync:
         .ds 1
 save_ctc_tape:
         .ds 2
-header_aadr:
+header_aadr::
     .ds 2
 header_eadr:
     .ds 2

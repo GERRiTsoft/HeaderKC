@@ -1,6 +1,6 @@
-all: example1 z9001 kc85
+all: example1 z9001 kc85 kc85mot
 
-.PHONY: example1 z9001 isr clean tools kc85
+.PHONY: example1 z9001 isr clean tools kc85 kc85mot
 
 obj:
 	mkdir -p out
@@ -35,26 +35,11 @@ SDLD_OPT=-mwxiu
 # -u   Update listing file(s) with link data as file(s)[.rst]
 #      sehr hilfreich!
 
-# EXAMPLE1
-#
-# Beispiel zum Erstellen eines einfachen Programmes
-# Minimalversion für die Verwendung der SDCC Werkzeuge
-#    SDASZ80, SDLDZ80
-# um ein lauffähiges Programm zu erstellen
-example1: obj
-	sdasz80 $(SDAS_OPT) obj/example1.rel src/example1.asm
-	sdldz80 -mjwxi -b _CODE=0x1000 obj/example1.ihx  obj/example1.rel
-	sdobjcopy -Iihex -Obinary  obj/example1.ihx  obj/example1.bin
-	hexdump -C obj/example1.bin
-
-#assemble und berechne taktzyklen
-isr: obj/isr_test.bin
+kc85mot:  obj obj/kc85/SchaltTest.kcc
 
 kc85:  obj obj/kc85/HeaderKC.kcc
 
 z9001: obj obj/z9001/HeaderKC.kcc
-
-#z9001a: obj tools obj/z9001.kcc out/z9001.wav 
 
 tools: obj obj/kcc2wav
 
@@ -67,8 +52,15 @@ obj/isr_test.bin: src/isr_test.asm
 	sdobjcopy -Iihex -Obinary  $(@:bin=ihx)  $@
 	cat $(@:bin=lst)
 
-obj/kc85/HeaderKC.kcc: obj/kc85/header.rel obj/kc85/hsave_cmd.rel  obj/kc85/hsave.rel obj/kc85/hload.rel
+obj/kc85/SchaltTest.kcc: obj/kc85/header.rel obj/kc85/schalttest.rel
 	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x180 -b _CODE=0x0200 $(@:kcc=ihx) $^
+	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
+	printf "%.8s" "MOT" >obj/kc85/filename2.txt
+	dd bs=1 if=obj/kc85/filename2.txt of="$@" count=8 seek=0 conv=notrunc,ucase
+
+#aadr +0x39d2 60e->3fe0
+obj/kc85/HeaderKC.kcc: obj/kc85/header.rel obj/kc85/hsave_cmd.rel  obj/kc85/hsave.rel obj/kc85/hload.rel
+	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x3b52 -b _CODE=0x3bd2 $(@:kcc=ihx) $^
 	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
 	printf "%.8s" "HSAVE4" >obj/kc85/filename.txt
 	dd bs=1 if=obj/kc85/filename.txt of="$@" count=8 seek=0 conv=notrunc,ucase
