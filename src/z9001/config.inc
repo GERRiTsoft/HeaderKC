@@ -34,6 +34,10 @@ UP_COEXT    .equ 31  ; Komprimieren eines Strings, Entfernung aller Steuerzeiche
 ;                32 unbelegt
 UP_RRAND    .equ 33  ; Lesen eines Blockes, setze vorher FCB Byte 32 mit Blocknummer
 
+Z9001               .equ 0
+KC85                .equ 1
+MODEL               .equ Z9001
+
 BLACK               .equ 0x00
 RED                 .equ 0x01
 GREEN               .equ 0x02
@@ -49,6 +53,7 @@ CHR_CYAN            .equ CYAN*0x100+0x14
 CHR_WHITE           .equ WHITE*0x100+0x14
 CHR_DEFAULT         .equ CHR_WHITE
 CHR_REPEAT          .equ ':'
+CHR_MENU            .equ '>'
 
 BIOS_CALL           .equ 0x0005
 currbank            .equ 0x0042       ; aktuelle Bank

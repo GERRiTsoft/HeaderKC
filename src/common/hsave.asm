@@ -3,11 +3,96 @@
 
         .globl prepare_arguments
 
-.macro WRITE_DE ?write_full_period ?write_done ?write_next_bit
+.macro WRITE_BIT ?write_full_period,?next_bit
+        rrca
+        out     (c),b
+        jr      c,write_full_period
+        out     (c),e
+        halt
+        jr      next_bit
+write_full_period:
+        out     (c),d
+next_bit:
+        halt
+.endm
+
+.macro WRITE_DE
+        ld  a,d
+        ex  af,af
+        ld  a,e
+        exx
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        ex  af,af
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        exx
+.endm
+
+.macro WRITE16_MEM_READ ?write_full_period,?next_bit
+        ld      d,(hl)
+        ld      a,d
+        ex      af,af
+        ld      a,e
+        exx
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        ex  af,af
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        rrca
+        out     (c),b
+        jr      c,write_full_period
+        out     (c),e
+        halt
+        jr      next_bit
+write_full_period:
+        out     (c),d
+next_bit:
+        exx
+        inc     hl
+        add     iy,de
+        ld      e,(hl)
+        inc     hl
+        dec     c
+        halt
+.endm
+
+.macro WRITE_DE2 ?write_full_period ?write_done ?write_next_bit
     ld b,#16
 write_next_bit:
     rrc d
     rr e
+write_next_bit_b:
     exx
     out (c),b
     jr nc,write_full_period
@@ -22,12 +107,13 @@ write_full_period:
     ; wir verlieren hier viel Zeit,
     ; eigentlich warten wir nur auf den zweiten Nulldurchgang
     ; ggf. kann man hierhin noch mehr Befehle verschieben
-    halt
     exx
-    djnz write_next_bit
+    rrc d
+    rr e
+    halt
+    djnz write_next_bit_b
 write_done:
 .endm
-
         .area   _CODE2
 run_hsave::
         call    prepare_arguments
@@ -54,6 +140,8 @@ run_hsave::
         ld      de,#input_buffer
         ld      a,#sizeof_header_filename
         ld      (de),a
+        push    de
+        pop     iy
         INLINE
         jp       c,exit
 inline_str::
@@ -119,7 +207,7 @@ get_timers::
         ld      de,#SYNC_BITS
         call    BSMK
 
-write_next_block:
+write_next_block::
         push    hl
         pop     iy
         ld      de,#14
@@ -167,12 +255,16 @@ stop_all_timers:
         ret
 restore_iv:
         di
-        ;ld a,#CTC_CMD|CTC_INT_ENABLE
-        ;out (PORT_CTC+3),a
         ld hl,(save_ctc_tape)
         ld (IV_CTC_TAPE),hl
-        ;ld a,#(PIO_CONTROL_WORD|PIO_INT_ENABLE)
-        ;out (PIO_TASTATUR_B_CMD),a
+
+.if eq(MODEL-Z9001)
+        ld a,#CTC_CMD|CTC_INT_ENABLE
+        out (PORT_CTC+3),a
+        ld a,#(PIO_CONTROL_WORD|PIO_INT_ENABLE)
+        out (PIO_TASTATUR_B_CMD),a
+.endif
+        ei
         ret
 
 save_old_iv:
@@ -212,18 +304,56 @@ BSMK::
         push    iy  ; Ausgabe blocknummer
         pop     de
         ;de blocknummer
+write_block_nr::
         WRITE_DE
 
         ld      c,#16
-write_next_word:
+write_next_word::
         ld      e,(hl)
         inc     hl
+write_next_word_highbyte:
         ld      d,(hl)
+        ld      a,d
+        ex      af,af
+        ld      a,e
+        exx
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        ex  af,af
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+
+        WRITE_BIT
+        WRITE_BIT
+        WRITE_BIT
+        rrca
+        out     (c),b
+        jr      c,write_full_period
+        out     (c),e
+        halt
+        jr      next_bit
+write_full_period:
+        out     (c),d
+next_bit:
+        exx
         inc     hl
         add     iy,de
-        WRITE_DE
+        ld      e,(hl)
+        inc     hl
         dec     c
-        jr      nz,write_next_word
+        halt
+        jp      nz,write_next_word_highbyte
+        dec     hl
         push    iy
         pop     de
         ; Prüfsumme
@@ -249,17 +379,19 @@ HZ_SYNC .equ 650
 HZ_BIT1 .equ 1350
 HZ_BIT0 .equ 2750
 timer_lookup:
-        ; db   28,  57, 117                            ;2.45 MHz   Z1013:2   MHz
-        ; db 0x14,0x29,0x54                            ;1.75 MHz - Z1013:2   MHz
-        ; db   20,  41,  84                            ;1.75 MHz - Z1013:2   MHz
-        .db ((CLK16/HZ_BIT0)+1)/2,((CLK16/HZ_BIT1)+1)/2,((CLK16/HZ_SYNC)+1)/2 ;1.75 MHz - Z1013:2   MHz
-        ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 16 Takzyklen Zeit
+        ; db   28,  57, 117                            ;2.45 MHz   Z1013:2 MHz
+        ; db 0x14,0x29,0x54                            ;1.75 MHz - Z1013:2 MHz
+        ; db   20,  41,  84                            ;1.75 MHz - Z1013:2 MHz
+        .db ((CLK16/HZ_BIT0)+1)/2,((CLK16/HZ_BIT1)+1)/2,((CLK16/HZ_SYNC)+1)/2 ;1.75 MHz - Z1013:2 MHz
+        .db ((CLK16/HZ_BIT0)+1)/4,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4 MHz
+        ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 32 Takzyklen Zeit
         ; bis zum nächsten Interrupt, andernfalls kommt womöglich noch eine extra
         ; Halbwelle zu viel auf das Band
-        .db ((CLK16/HZ_BIT0)+1)/4+1,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4   MHz
+        ;.db ((CLK16/HZ_BIT0)+1)/5+1,((CLK16/HZ_BIT1)+1)/5,((CLK16/HZ_SYNC)+1)/5;1.75 MHz - Z1013:5 MHz
 .if ne(CLK-1750000)
         .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz    Z1013:5.1 MHz
         .db 10,(10*20357)/10000,(10*41786)/10000 ;2.5 MHz    Z1013:5.6 MHz
+        .db 9,(9*20357)/10000,(9*41786)/10000 ;2.5 MHz    Z1013:6.2 MHz
 .endif
 
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
@@ -316,17 +448,26 @@ str_usage:
         .ascii '         1 .. turbo     Z1013 4.0MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-2)
-        .ascii '         2 .. usw.      Z1013 5.1MHz\n\r'
+        .ascii '         2 .. usw.      Z1013 5.0MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-3)
         .ascii '         3 ..           Z1013 5.6MHz\n\r'
 .endif
+.if gt(LEN_TIMER_LOOKUP-4)
+        .ascii '         4 ..           Z1013 6.2MHz\n\r'
+.endif
+.if gt(LEN_TIMER_LOOKUP-5)
+        .ascii '         5 ..           Z1013 7.0MHz\n\r'
+.endif
         .dw CHR_WHITE
         .ascii 'Beispiele:\n\r'
+        .db CHR_MENU
         .ascii 'HSAVE '
         .db CHR_REPEAT
         .ascii '\n\r'
+        .db CHR_MENU
         .ascii 'HSAVE F000 F7FF\n\r'
+        .db CHR_MENU
         .ascii 'HSAVE F000 F7FF 0000 0'
         .db LEN_TIMER_LOOKUP-1+0x30
         .asciz '\n\r'
@@ -365,3 +506,4 @@ input_buffer:
 header_filename:
     .ds 16
 sizeof_header_filename .equ .-header_filename
+end_of_ram::

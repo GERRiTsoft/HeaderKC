@@ -58,9 +58,11 @@ obj/kc85/SchaltTest.kcc: obj/kc85/header.rel obj/kc85/schalttest.rel
 	printf "%.8s" "MOT" >obj/kc85/filename2.txt
 	dd bs=1 if=obj/kc85/filename2.txt of="$@" count=8 seek=0 conv=notrunc,ucase
 
-#aadr +0x39d2 60e->3fe0
+offset:
+	tools/calc_offset.pl
+	
 obj/kc85/HeaderKC.kcc: obj/kc85/header.rel obj/kc85/hsave_cmd.rel  obj/kc85/hsave.rel obj/kc85/hload.rel
-	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x3b52 -b _CODE=0x3bd2 $(@:kcc=ihx) $^
+	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x7912 -b _CODE=0x7992 $(@:kcc=ihx) $^
 	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
 	printf "%.8s" "HSAVE4" >obj/kc85/filename.txt
 	dd bs=1 if=obj/kc85/filename.txt of="$@" count=8 seek=0 conv=notrunc,ucase

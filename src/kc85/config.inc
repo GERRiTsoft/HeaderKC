@@ -6,6 +6,10 @@ FNCOLORUP           .equ 0x0f
 FNINLIN             .equ 0x17
 FNOSTR              .equ 0x23
 
+Z9001               .equ 0
+KC85                .equ 1
+MODEL               .equ KC85
+
 BLUE                .equ 0x01
 RED                 .equ 0x02
 MAGENTA             .equ 0x03
@@ -20,6 +24,7 @@ CHR_CYAN            .equ CYAN*0x100+0x14
 CHR_WHITE           .equ WHITE*0x100+0x14
 CHR_DEFAULT         .equ CHR_WHITE
 CHR_REPEAT          .equ '0'
+CHR_MENU            .equ '%'
 
 SYNC_BITS           .equ 4096
 VK_BREAK            .equ 0x03

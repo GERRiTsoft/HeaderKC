@@ -75,7 +75,7 @@ inline::
         ld      1(iy),a
 next_character:
         GETCH
-        cp      #' '
+        cp      #(' '-1)
         call    c,steuerzeichen
         ; return if CF=1
         jr      nc,2$
@@ -96,7 +96,7 @@ next_character:
         inc     de
         PUTCH
         jr      next_character
-steuerzeichen:
+steuerzeichen::
         cp      #VK_ENTER
         scf
         ret     z
@@ -113,6 +113,7 @@ steuerzeichen:
         ld      a,#0x1f; clear+cursor left
         PUTCH
         dec     1(iy)
+        dec     de
 $1:
         ld      a,#0
         or      a
