@@ -185,9 +185,15 @@ header_prepared::
 
 get_timers::
         ld      a,(ARG4)
+        ; a*TIMER_LOOKUP_SIZE
+.if eq(TIMER_LOOKUP_SIZE-5)
         ld      d,a
         add     a
+        add     a
         add     d
+.else
+        .error "Dies ist keine Multiplikation mit Faktor 5"
+.endif
         push    bc
         ld      c,a
         ld      b,#0
@@ -427,16 +433,19 @@ str_usage:
         .ascii '         1 .. turbo     Z1013 4.0MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-2)
-        .ascii '         2 .. usw.      Z1013 5.0MHz\n\r'
+        .ascii '         2 .. usw.      Z1013 5.3MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-3)
-        .ascii '         3 ..           Z1013 5.4MHz\n\r'
+        .ascii '         3 ..           Z1013 5.8MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-4)
-        .ascii '         4 ..           Z1013 6.0MHz\n\r'
+        .ascii '         4 ..           Z1013 6.5MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-5)
-        .ascii '         5 ..           Z1013 6.8MHz\n\r'
+        .ascii '         5 ..           Z1013 7.3MHz\n\r'
+.endif
+.if gt(LEN_TIMER_LOOKUP-6)
+        .ascii '         6 ..           Z1013 8.3MHz\n\r'
 .endif
         .dw CHR_WHITE
         .ascii 'Beispiele:\n\r'
@@ -471,24 +480,27 @@ timer_lookup:
         .dw 4096
 TIMER_LOOKUP_SIZE .equ (.-timer_lookup)
 
-        .db ((CLK16/HZ_BIT0)+1)/4,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4 MHz
+        .db ((CLK16/HZ_BIT0)+2)/4,((CLK16/HZ_BIT1)+2)/4,((CLK16/HZ_SYNC)+2)/4 ;1.75 MHz - Z1013:4 MHz
         .dw 8192
         ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 32 Takzyklen Zeit
         ; bis zum nächsten Interrupt, andernfalls kommt womöglich noch eine extra
         ; Halbwelle zu viel auf das Band
         ;.db ((CLK16/HZ_BIT0)+1)/5+1,((CLK16/HZ_BIT1)+1)/5,((CLK16/HZ_SYNC)+1)/5;1.75 MHz - Z1013:5 MHz
-.if ne(CLK-1750000)
-        .db 11,(11*20357)/10000,(11*41786)/10000 ;2.45 MHz    Z1013:5.0 MHz
+.if ne(MODEL-KC85)
+        .db 11,(11*20357)/10000,(11*41786)/10000 ;2.45 MHz    Z1013:5.3 MHz
         .dw 10000
 
-        .db 10,(10*20357)/10000,(10*41786)/10000 ;2.45 MHz    Z1013:5.4 MHz
+        .db 10,(10*20357)/10000,(10*41786)/10000 ;2.45 MHz    Z1013:5.8 MHz
         .dw 11060
 
-        .db 9,(9*20357)/10000,(9*41786)/10000    ;2.45 MHz    Z1013:6.0 MHz
+        .db 9,(9*20357)/10000,(9*41786)/10000    ;2.45 MHz    Z1013:6.5 MHz
         .dw 12200
 
-        .db 8,(8*20357)/10000,(8*41786)/10000    ;2.45 MHz    Z1013:6.8 MHz
+        .db 8,(8*20357)/10000,(8*41786)/10000    ;2.45 MHz    Z1013:7.3 MHz
         .dw 13800
+
+        ;.db 7,(7*20357)/10000,(7*41786)/10000    ;2.45 MHz    Z1013:7.3 MHz
+        ;.dw 13800
 .endif
 
 LEN_TIMER_LOOKUP .equ (.-timer_lookup)/TIMER_LOOKUP_SIZE

@@ -53,8 +53,12 @@ ARG4                .equ 0xb788
 CTC_SET_COUNTER     .equ 0x04
 CTC_RESET           .equ 0x02
 CTC_CMD             .equ 0x01
-CLK                 .equ 1750000
-CLK16               .equ  109375
+;KC85/3 Wenn wir diese Konstanten verwenden wird es zu schnell auf dem KC85/4
+;CLK                 .equ 1750000
+;CLK16               .equ  109375
+; dann lieber 1,5% langsamer auf dem KC85/3
+;CLK                 .equ 1773447.6
+CLK16               .equ  110840
 
         .globl  cputs
         .globl  cputs_next
