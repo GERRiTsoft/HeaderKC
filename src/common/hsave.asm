@@ -194,17 +194,17 @@ get_timers::
         ld      hl,#timer_lookup
         add     hl,bc
         ld      de,#timer_bit0
-        ld      bc,#3
+        ld      bc,#TIMER_LOOKUP_SIZE
         ldir
 
         ld      hl,#header_aadr
         ld      iy,#0x00e0
-        ld      de,#SYNC_BITS
+        ld      de,(sync_count)
         call    BSMK
         ld      hl,(header_aadr)
         push    hl
         pop     iy
-        ld      de,#SYNC_BITS
+        ld      de,(sync_count)
         call    BSMK
 
 write_next_block::
@@ -221,8 +221,7 @@ write_next_block::
         pop     bc
 
         call    restore_iv
-        xor     a
-        ret
+        jr      exit
 
 show_usage_and_exit:
         CPUTS_NEWLINE   str_usage
@@ -375,26 +374,6 @@ isr_halt::
 ; Datensegment
 ;
         .area   _RODATA
-HZ_SYNC .equ 650
-HZ_BIT1 .equ 1350
-HZ_BIT0 .equ 2750
-timer_lookup:
-        ; db   28,  57, 117                            ;2.45 MHz   Z1013:2 MHz
-        ; db 0x14,0x29,0x54                            ;1.75 MHz - Z1013:2 MHz
-        ; db   20,  41,  84                            ;1.75 MHz - Z1013:2 MHz
-        .db ((CLK16/HZ_BIT0)+1)/2,((CLK16/HZ_BIT1)+1)/2,((CLK16/HZ_SYNC)+1)/2 ;1.75 MHz - Z1013:2 MHz
-        .db ((CLK16/HZ_BIT0)+1)/4,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4 MHz
-        ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 32 Takzyklen Zeit
-        ; bis zum nächsten Interrupt, andernfalls kommt womöglich noch eine extra
-        ; Halbwelle zu viel auf das Band
-        ;.db ((CLK16/HZ_BIT0)+1)/5+1,((CLK16/HZ_BIT1)+1)/5,((CLK16/HZ_SYNC)+1)/5;1.75 MHz - Z1013:5 MHz
-.if ne(CLK-1750000)
-        .db 11,(11*20357)/10000,(11*41786)/10000 ;2.5 MHz    Z1013:5.1 MHz
-        .db 10,(10*20357)/10000,(10*41786)/10000 ;2.5 MHz    Z1013:5.6 MHz
-        .db 9,(9*20357)/10000,(9*41786)/10000 ;2.5 MHz    Z1013:6.2 MHz
-.endif
-
-LEN_TIMER_LOOKUP .equ (.-timer_lookup)/3
 str_hsave4:
         .ascii 'HSAVE4'
 sizeof_str_hsave4 .equ .-str_hsave4
@@ -451,13 +430,13 @@ str_usage:
         .ascii '         2 .. usw.      Z1013 5.0MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-3)
-        .ascii '         3 ..           Z1013 5.6MHz\n\r'
+        .ascii '         3 ..           Z1013 5.4MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-4)
-        .ascii '         4 ..           Z1013 6.2MHz\n\r'
+        .ascii '         4 ..           Z1013 6.0MHz\n\r'
 .endif
 .if gt(LEN_TIMER_LOOKUP-5)
-        .ascii '         5 ..           Z1013 7.0MHz\n\r'
+        .ascii '         5 ..           Z1013 6.8MHz\n\r'
 .endif
         .dw CHR_WHITE
         .ascii 'Beispiele:\n\r'
@@ -468,14 +447,51 @@ str_usage:
         .db CHR_MENU
         .ascii 'HSAVE F000 F7FF\n\r'
         .db CHR_MENU
-        .ascii 'HSAVE F000 F7FF 0000 0'
-        .db LEN_TIMER_LOOKUP-1+0x30
-        .asciz '\n\r'
+        .ascii 'HSAVE F000 F7FF 0000 '
+.if gt(LEN_TIMER_LOOKUP-1)
+        .ascii '1'
+.else
+        .ascii '0'
+.endif
         .dw CHR_DEFAULT
+        .asciz '\n\r'
 str_typ:
         .asciz 'typ:'
 str_filename:
         .asciz ' filename:'
+; Werte der Original-Z1013-Savefunktion.
+HZ_SYNC .equ 658
+HZ_BIT1 .equ 1316
+HZ_BIT0 .equ 2630
+timer_lookup:
+        ; db   28,  57, 117                            ;2.45 MHz   Z1013:2 MHz
+        ; db 0x14,0x29,0x54                            ;1.75 MHz - Z1013:2 MHz
+        ; db   20,  41,  84                            ;1.75 MHz - Z1013:2 MHz
+        .db ((CLK16/HZ_BIT0)+1)/2,((CLK16/HZ_BIT1)+1)/2,((CLK16/HZ_SYNC)+1)/2 ;1.75 MHz - Z1013:2 MHz
+        .dw 4096
+TIMER_LOOKUP_SIZE .equ (.-timer_lookup)
+
+        .db ((CLK16/HZ_BIT0)+1)/4,((CLK16/HZ_BIT1)+1)/4,((CLK16/HZ_SYNC)+1)/4 ;1.75 MHz - Z1013:4 MHz
+        .dw 8192
+        ; das +1 ist ein wenig geschummelt, es gibt dem KC noch 32 Takzyklen Zeit
+        ; bis zum nächsten Interrupt, andernfalls kommt womöglich noch eine extra
+        ; Halbwelle zu viel auf das Band
+        ;.db ((CLK16/HZ_BIT0)+1)/5+1,((CLK16/HZ_BIT1)+1)/5,((CLK16/HZ_SYNC)+1)/5;1.75 MHz - Z1013:5 MHz
+.if ne(CLK-1750000)
+        .db 11,(11*20357)/10000,(11*41786)/10000 ;2.45 MHz    Z1013:5.0 MHz
+        .dw 10000
+
+        .db 10,(10*20357)/10000,(10*41786)/10000 ;2.45 MHz    Z1013:5.4 MHz
+        .dw 11060
+
+        .db 9,(9*20357)/10000,(9*41786)/10000    ;2.45 MHz    Z1013:6.0 MHz
+        .dw 12200
+
+        .db 8,(8*20357)/10000,(8*41786)/10000    ;2.45 MHz    Z1013:6.8 MHz
+        .dw 13800
+.endif
+
+LEN_TIMER_LOOKUP .equ (.-timer_lookup)/TIMER_LOOKUP_SIZE
 ;
 ; uninitialisierte Daten
 ;
@@ -486,6 +502,8 @@ timer_bit1:
         .ds 1
 timer_bit_sync:
         .ds 1
+sync_count:
+        .ds 2
 save_ctc_tape:
         .ds 2
 header_aadr::

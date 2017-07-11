@@ -108,10 +108,9 @@ CTC_CMD             .equ 0x01
 CLK                 .equ 2457500
 CLK16               .equ  153594
 
-SYNC_BITS           .equ 4096
-
 VK_BREAK            .equ 0x03
 VK_LEFT             .equ 0x08
+VK_DOWN             .equ 0x0a
 VK_ENTER            .equ 0x0d
 
 .macro CPUTS_NEWLINE str
@@ -133,6 +132,15 @@ VK_ENTER            .equ 0x0d
 
 .macro PUTCH
         ld      e,a
+        ld      c,#UP_CONSO
+        call BIOS_CALL
+.endm
+
+.macro CRLF
+        ld      e,#VK_ENTER
+        ld      c,#UP_CONSO
+        call BIOS_CALL
+        ld      e,#VK_DOWN
         ld      c,#UP_CONSO
         call BIOS_CALL
 .endm

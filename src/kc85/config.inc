@@ -5,6 +5,7 @@ FNKBD               .equ 0x04
 FNCOLORUP           .equ 0x0f
 FNINLIN             .equ 0x17
 FNOSTR              .equ 0x23
+FNCRLF              .equ 0x2c
 
 Z9001               .equ 0
 KC85                .equ 1
@@ -26,7 +27,6 @@ CHR_DEFAULT         .equ CHR_WHITE
 CHR_REPEAT          .equ '0'
 CHR_MENU            .equ '%'
 
-SYNC_BITS           .equ 4096
 VK_BREAK            .equ 0x03
 VK_LEFT             .equ 0x08
 VK_ENTER            .equ 0x0d
@@ -80,8 +80,13 @@ CLK16               .equ  109375
         .db     FNCRT
 .endm
 
+.macro CRLF
+        call    PV1
+        .db     FNCRLF
+.endm
 
 .macro INLINE
         call    inline
+        CRLF
 .endm
 

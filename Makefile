@@ -62,7 +62,7 @@ offset:
 	tools/calc_offset.pl
 	
 obj/kc85/HeaderKC.kcc: obj/kc85/header.rel obj/kc85/hsave_cmd.rel  obj/kc85/hsave.rel obj/kc85/hload.rel
-	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x7912 -b _CODE=0x7992 $(@:kcc=ihx) $^
+	sdldz80 $(SDLD_OPT) -b _KCC_HEADER=0x7907 -b _CODE=0x7987 $(@:kcc=ihx) $^
 	sdobjcopy -Iihex -Obinary  $(@:kcc=ihx)  $@
 	printf "%.8s" "HSAVE4" >obj/kc85/filename.txt
 	dd bs=1 if=obj/kc85/filename.txt of="$@" count=8 seek=0 conv=notrunc,ucase
