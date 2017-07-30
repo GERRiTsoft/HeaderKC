@@ -1,4 +1,6 @@
-TURBOLSZ wird aus der Kommandozeile gestartet.
+TURBOLSZ liefert aus einer .K85 Binärdatei
+eine WAV in 44kHz, 8Bit mono.
+Es wird aus der Kommandozeile gestartet.
 Die Quelldatei ist eine K85 Binärdatei,
 die normalerweise einen Kopf mit 128 Byte enthält.
 Fehlt der Kopf, werden die Daten abgefragt.
