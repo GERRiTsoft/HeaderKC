@@ -90,7 +90,7 @@ end;
 Procedure Aus;
 {erzeugt Block B mit Blnr & Prüfsumme}
 begin
-  Pr:=Blnr;
+  Pr:=0;
   B[0]:=Blnr;
   for i:=1to 128do begin
     B[i]:=R[i];
@@ -130,7 +130,7 @@ begin
     S:='                ';
     Write('Dateiname max. 16):');Readln(S);
     for i:=1to 16do
-    R[8+i]:=Ord(S[i]);
+    R[16+i]:=Ord(S[i]);
   end;
   aadr:=RW[1];
   eadr:=RW[2];
