@@ -88,7 +88,7 @@ begin
 end;
 
 Procedure Aus;
-{erzeugt Block B mit adr & Prüfsumme}
+{erzeugt Block B mit Blnr & Prüfsumme}
 begin
   Pr:=Blnr;
   B[0]:=Blnr;
@@ -102,9 +102,9 @@ begin
   Trenn;
   for i:=0to 129do begin{Bytes}
     j:=1;
-    while j<$80 do begin
-      if B[i]And j =j then Eins else Null;
-      j:=j+j;
+    while j<$81 do begin
+      if B[i]And j=j then Eins else Null;
+      Inc(j,j);
     end;
   end;{Bytes}
 end;{Aus}
@@ -243,7 +243,7 @@ bei KCCONV)
 @@@@@@@@@@€ÀÀÀÀÀÀÀÀÀÀ
 (10 von jeder Sorte+80h=1050Hz)
 Der Vorton gute 3.8 Sek lang, also exakt 4000 Schwingungen
-Blockvorton = 25 Schwingungen
+Blockvorton = 160 (A0) Schwingungen
 Stopbit bzw. Trennzeichen:
 @@@@@@@@@@@@@@@@@@@@ÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀ
 (also 20 von jeder Sorte ohne Nulldurchgang ~ 550Hz von 566)
