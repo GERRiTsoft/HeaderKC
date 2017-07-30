@@ -243,7 +243,7 @@ bei KCCONV)
 @@@@@@@@@@Ä¿¿¿¿¿¿¿¿¿¿
 (10 von jeder Sorte+80h=1050Hz)
 Der Vorton gute 3.8 Sek lang, also exakt 4000 Schwingungen
-Blockvorton = 160 (A0) Schwingungen
+Blockvorton = 25 Schwingungen
 Stopbit bzw. Trennzeichen:
 @@@@@@@@@@@@@@@@@@@@¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 (also 20 von jeder Sorte ohne Nulldurchgang ~ 550Hz von 566)
