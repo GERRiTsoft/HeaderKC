@@ -219,7 +219,7 @@ neg.@@@@@@@@@@@@@@@@@@@@ÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀÀ
 vor jedem Block davon je 7 Stück
 beide Vortöne dürfen gleich lang sein, daher je 2048 Schwingungen für je 3,1s
 (Brosig verwendet auch 2048 Schwingungen)
-Trennzeichen 20 Byte ~ 1300Hz:
+Trennzeichen 20 Byte ~ 2200Hz:
 ÀÀÀÀÀÀÀÀÀÀ@@@@@@@@@@ neg.@@@@@@@@@@ÀÀÀÀÀÀÀÀÀÀ
 Null = 4400Hz:
 ÀÀÀÀÀ oder negativ @@@@@
@@ -229,7 +229,7 @@ Eins = 2200Hz:
 war nur für die Rundfunkübertragung problematisch)
 und eine Austastlücke nach jedem Block
 34 x À oder @ (die Phasenlage wechselt mit jeder 1)
-Fehlen am Ende der Z80-Datei Bytes, mit Nullen auffüllen und Hinweis melden!
+Fehlen am Ende der K85-Datei Bytes, mit Nullen auffüllen und Hinweis melden!
 Zum Schluß noch 12000 Nullen, um etwas Silence zu haben,
 da manche Player gerne das Ende abschneiden.
 
