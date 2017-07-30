@@ -1,0 +1,5 @@
+TURBOLSZ wird aus der Kommandozeile gestartet.
+Die Quelldatei ist eine K85 Binärdatei,
+die normalerweise einen Kopf mit 128 Byte enthält.
+Fehlt der Kopf, werden die Daten abgefragt.
+Dann wird alles in eine gleichnamige Wave-Datei geschrieben.
